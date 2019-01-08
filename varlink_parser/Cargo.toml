@@ -22,7 +22,7 @@ travis-ci = { repository = "varlink/rust" }
 itertools = "0"
 bytes = "0"
 ansi_term = "0.11"
-chainerror = { version = "0.3", path = "../../../chainerror"}
+chainerror = "0.3"
 
 [features]
 dynamic_peg = [ "peg" ]

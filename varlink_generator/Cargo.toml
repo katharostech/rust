@@ -23,7 +23,7 @@ name = "varlink-rust-generator"
 path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
-chainerror = { version = "0.3", path = "../../../chainerror"}
+chainerror = "0.3"
 varlink_parser = { version = "2.1", path = "../varlink_parser" }
 quote = "0.6"
 proc-macro2 = "0.4"

@@ -16,7 +16,7 @@ varlink = { version = "5", path = "../varlink" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-chainerror = { version = "0.3", path = "../../../chainerror"}
+chainerror = "0.3"
 
 [build-dependencies]
 varlink_generator = { version = "6", path = "../varlink_generator" }
