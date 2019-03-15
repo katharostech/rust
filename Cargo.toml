@@ -12,3 +12,5 @@ members = [
     "examples/ping",
 ]
 
+[patch.crates-io]
+quick-error = { path = "../../quick-error" }

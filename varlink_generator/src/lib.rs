@@ -449,7 +449,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                 Err(e) => {
                                     let es = format!("{}", e);
                                     let _ = call.reply_invalid_parameter(es.clone());
-                                    return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
+                                    return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es, e)).into());
                                 }
                             };
                             self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)

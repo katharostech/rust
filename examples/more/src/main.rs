@@ -149,7 +149,7 @@ impl VarlinkInterface for MyOrgExampleMore {
 
     fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
         call.reply()?;
-        Err(varlink::ErrorKind::ConnectionClosed.into())
+        Err(varlink::context!(varlink::ErrorKind::ConnectionClosed))
     }
     fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {

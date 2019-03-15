@@ -137,9 +137,7 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
         writer
             .write_all(b"End\n")
             .map_err(varlink::map_context!())?;
-        writer
-            .flush()
-            .map_err(varlink::map_context!())?;
+        writer.flush().map_err(varlink::map_context!())?;
         let mut buf = Vec::new();
         if reader
             .read_until(b'\n', &mut buf)
@@ -196,9 +194,7 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
             call.writer
                 .write_all(buf.as_bytes())
                 .map_err(varlink::map_context!())?;
-            call.writer
-                .flush()
-                .map_err(varlink::map_context!())?;
+            call.writer.flush().map_err(varlink::map_context!())?;
 
             if buf.eq("End\n") {
                 break;

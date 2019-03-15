@@ -2,9 +2,9 @@ use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 
+use chainerror::*;
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 use varlink_derive;
-use chainerror::*;
 
 use crate::org_example_network::VarlinkClientInterface;
 
@@ -93,9 +93,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
     let description = iface
         .get_interface_description("org.example.network")
-        .map_err(mstrerr!(
-            "Error calling get_interface_description()"
-        ))?;
+        .map_err(mstrerr!("Error calling get_interface_description()"))?;
 
     assert!(description.description.is_some());
 

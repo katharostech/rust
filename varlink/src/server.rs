@@ -51,12 +51,8 @@ impl<'a> Stream {
     }
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            Stream::TCP(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
-            Stream::UNIX(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
+            Stream::TCP(ref mut s) => s.shutdown(Shutdown::Both).map_err(map_context!())?,
+            Stream::UNIX(ref mut s) => s.shutdown(Shutdown::Both).map_err(map_context!())?,
         }
         Ok(())
     }
@@ -393,12 +389,8 @@ impl Listener {
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
-            Listener::TCP(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(map_context!())?
-            }
-            Listener::UNIX(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(map_context!())?
-            }
+            Listener::TCP(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
+            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
             _ => Err(context!(ErrorKind::ConnectionClosed))?,
         }
         Ok(())
@@ -608,8 +600,9 @@ impl Worker {
 /// );
 ///
 /// if let Err(e) = varlink::listen(service, "unix:test_listen_timeout", 1, 10, 1) {
-///     if *e.kind() != varlink::ErrorKind::Timeout {
-///         panic!("Error listen: {:?}", e);
+///     match e.kind() {
+///         varlink::ErrorKind::Timeout => {},
+///         e => panic!("Error listen: {:?}", e),
 ///     }
 /// }
 ///```
@@ -663,7 +656,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
                     }
                     Err(err) => {
                         match err.kind() {
-                            ErrorKind::ConnectionClosed | ErrorKind::SerdeJsonDe(_) => {}
+                            ErrorKind::ConnectionClosed | ErrorKind::SerdeJsonDe(_, _) => {}
                             _ => {
                                 eprintln!("Worker error: {:?}", err);
                             }

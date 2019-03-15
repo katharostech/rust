@@ -153,9 +153,7 @@ impl<'a> VarlinkStream {
 
         if new_address.starts_with("tcp:") {
             Ok((
-                VarlinkStream::TCP(
-                    TcpStream::connect(&new_address[4..]).map_err(map_context!())?,
-                ),
+                VarlinkStream::TCP(TcpStream::connect(&new_address[4..]).map_err(map_context!())?),
                 new_address,
             ))
         } else if new_address.starts_with("unix:") {
@@ -189,12 +187,8 @@ impl<'a> VarlinkStream {
 
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
-            VarlinkStream::UNIX(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
+            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both).map_err(map_context!())?,
+            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both).map_err(map_context!())?,
         }
         Ok(())
     }

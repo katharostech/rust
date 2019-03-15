@@ -1,6 +1,8 @@
-use crate::*;
-use serde_json::{from_slice, from_value};
 use std::{thread, time};
+
+use serde_json::{from_slice, from_value};
+
+use crate::*;
 
 #[test]
 fn test_listen() -> Result<()> {
@@ -14,8 +16,9 @@ fn test_listen() -> Result<()> {
         );
 
         if let Err(e) = listen(service, &address, 1, 10, timeout) {
-            if *e.kind() != ErrorKind::Timeout {
-                panic!("Error listen: {:#?}", e);
+            match e.kind() {
+                ErrorKind::Timeout => {}
+                e => panic!("Error listen: {:#?}", e),
             }
         }
         Ok(())
@@ -187,8 +190,7 @@ fn test_handle() -> Result<()> {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    let si =
-        from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(map_context!())?;
+    let si = from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(map_context!())?;
 
     assert_eq!(
         si,

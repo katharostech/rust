@@ -1,5 +1,7 @@
-use chainerror::*;
 use std::{thread, time};
+
+use chainerror::*;
+
 use varlink::Connection;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
@@ -7,8 +9,9 @@ pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 fn run_self_test(address: &'static str) -> Result<()> {
     let child = thread::spawn(move || {
         if let Err(e) = crate::run_server(address, 4) {
-            if *e.kind() != ::varlink::ErrorKind::Timeout {
-                panic!("error: {:?}", e);
+            match e.kind() {
+                varlink::ErrorKind::Timeout => {}
+                e => panic!("error: {:?}", e),
             }
         }
     });

@@ -1,97 +1,146 @@
 use std::io;
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum ErrorKind {
-    Io(::std::io::ErrorKind),
-    SerdeJsonSer(::serde_json::error::Category),
-    SerdeJsonDe(String),
-    InterfaceNotFound(String),
-    InvalidParameter(String),
-    MethodNotFound(String),
-    MethodNotImplemented(String),
-    VarlinkErrorReply(crate::Reply),
-    CallContinuesMismatch,
-    MethodCalledAlready,
-    ConnectionBusy,
-    IteratorOldReply,
-    Server,
-    Timeout,
-    ConnectionClosed,
-    InvalidAddress,
-    Generic,
+use quick_error::quick_error;
+use serde_json;
+
+use crate::Reply;
+
+quick_error! {
+    #[derive(Debug)]
+    pub enum ErrorKind {
+        Io(err: io::Error) {
+            from()
+            source(err)
+            display("IO error: {}", err)
+        }
+        SerdeJsonSer(err: serde_json::error::Error) {
+            from()
+            source(err)
+            display("JSON Serialization Error: {}", err)
+        }
+        SerdeJsonDe(json: String, err: serde_json::error::Error) {
+            source(err)
+            display("JSON Deserialization Error of: {}", json)
+        }
+        InterfaceNotFound(name: String) {
+            display("Interface not found: '{}'", name)
+        }
+        InvalidParameter(name: String) {
+            display("Invalid parameter: '{}'", name)
+        }
+        MethodNotFound(name: String) {
+            display("Method not found: '{}'", name)
+        }
+        MethodNotImplemented(name: String) {
+            display("Method not implemented: '{}'", name)
+        }
+        VarlinkErrorReply(reply: crate::Reply) {
+            display("Varlink error reply: '{:#?}'", reply)
+        }
+        CallContinuesMismatch {
+            display("Call::reply() called with continues, but without more in the request")
+        }
+        MethodCalledAlready { display("Varlink: method called already") }
+        ConnectionBusy { display("Varlink: connection busy with other method") }
+        IteratorOldReply { display("Varlink: Iterator called on old reply") }
+        Server { display("Server Error") }
+        Timeout { display("Timeout Error") }
+        ConnectionClosed { display ("Connection Closed") }
+        InvalidAddress { display ("Invalid varlink address URI") }
+    }
 }
 
-impl ::std::fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            ErrorKind::Io(_) => write!(f, "IO error"),
-            ErrorKind::SerdeJsonSer(_) => write!(f, "JSON Serialization Error"),
-            ErrorKind::SerdeJsonDe(v) => write!(f, "JSON Deserialization Error of '{}'", v),
-            ErrorKind::InterfaceNotFound(v) => write!(f, "Interface not found: '{}'", v),
-            ErrorKind::InvalidParameter(v) => write!(f, "Invalid parameter: '{}'", v),
-            ErrorKind::MethodNotFound(v) => write!(f, "Method not found: '{}'", v),
-            ErrorKind::MethodNotImplemented(v) => write!(f, "Method not implemented: '{}'", v),
-            ErrorKind::VarlinkErrorReply(v) => write!(f, "Varlink error reply: '{:#?}'", v),
-            ErrorKind::CallContinuesMismatch => write!(
-                f,
-                "Call::reply() called with continues, but without more in the request"
-            ),
-            ErrorKind::MethodCalledAlready => write!(f, "Varlink: method called already"),
-            ErrorKind::ConnectionBusy => write!(f, "Varlink: connection busy with other method"),
-            ErrorKind::IteratorOldReply => write!(f, "Varlink: Iterator called on old reply"),
-            ErrorKind::Server => write!(f, "Server Error"),
-            ErrorKind::Timeout => write!(f, "Timeout Error"),
-            ErrorKind::ConnectionClosed => write!(f, "Connection Closed"),
-            ErrorKind::InvalidAddress => write!(f, "Invalid varlink address URI"),
-            ErrorKind::Generic => Ok(()),
+impl From<Reply> for ErrorKind {
+    fn from(e: Reply) -> Self {
+        match e {
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InterfaceNotFound" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<crate::ErrorInterfaceNotFound>(p) {
+                    Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()),
+                    Err(_) => ErrorKind::InterfaceNotFound(String::new()),
+                },
+                _ => ErrorKind::InterfaceNotFound(String::new()),
+            },
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InvalidParameter" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<crate::ErrorInvalidParameter>(p) {
+                    Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()),
+                    Err(_) => ErrorKind::InvalidParameter(String::new()),
+                },
+                _ => ErrorKind::InvalidParameter(String::new()),
+            },
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotFound" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<crate::ErrorMethodNotFound>(p) {
+                    Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()),
+                    Err(_) => ErrorKind::MethodNotFound(String::new()),
+                },
+                _ => ErrorKind::MethodNotFound(String::new()),
+            },
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotImplemented" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<crate::ErrorMethodNotImplemented>(p) {
+                    Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()),
+                    Err(_) => ErrorKind::MethodNotImplemented(String::new()),
+                },
+                _ => ErrorKind::MethodNotImplemented(String::new()),
+            },
+            _ => ErrorKind::VarlinkErrorReply(e),
         }
     }
 }
 
-impl From<&std::io::Error> for ErrorKind {
-    fn from(e: &io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::BrokenPipe
-            | io::ErrorKind::ConnectionAborted
-            | io::ErrorKind::ConnectionReset => ErrorKind::ConnectionClosed,
-            kind => ErrorKind::Io(kind),
+impl ErrorKind {
+    pub fn is_error(r: &Reply) -> bool {
+        match r.error {
+            Some(ref t) => match t.as_ref() {
+                "org.varlink.service.InvalidParameter" => true,
+                "org.varlink.service.InterfaceNotFound" => true,
+                "org.varlink.service.MethodNotFound" => true,
+                "org.varlink.service.MethodNotImplemented" => true,
+                _ => false,
+            },
+            _ => false,
         }
     }
 }
 
-impl From<&serde_json::error::Error> for ErrorKind {
-    fn from(e: &serde_json::error::Error) -> Self {
-        ErrorKind::SerdeJsonSer(e.classify())
-    }
+pub struct Error {
+    pub kind: ErrorKind,
+    pub occurrence: &'static str,
 }
-
-pub struct Error(
-    pub ErrorKind,
-    pub Option<Box<dyn std::error::Error + 'static + Send + Sync>>,
-    pub Option<&'static str>,
-);
 
 impl Error {
     pub fn kind(&self) -> &ErrorKind {
-        &self.0
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(e: ErrorKind) -> Self {
-        Error(e, None, None)
+        &self.kind
     }
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.1.as_ref().map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
+        self.kind.source()
     }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, f)
+        std::fmt::Display::fmt(&self.kind, f)
     }
 }
 
@@ -99,11 +148,9 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use std::error::Error as StdError;
 
-        if let Some(ref o) = self.2 {
-            std::fmt::Display::fmt(o, f)?;
-        }
+        std::fmt::Display::fmt(self.occurrence, f)?;
 
-        std::fmt::Debug::fmt(&self.0, f)?;
+        std::fmt::Debug::fmt(&self.kind, f)?;
         if let Some(e) = self.source() {
             std::fmt::Display::fmt("\nCaused by:\n", f)?;
             std::fmt::Debug::fmt(&e, f)?;
@@ -115,21 +162,18 @@ impl std::fmt::Debug for Error {
 #[macro_export]
 macro_rules! map_context {
     () => {
-        |e| $crate::context!(e, $crate::ErrorKind::from(&e))
+        |e| $crate::context!($crate::ErrorKind::from(e))
     };
 }
 
 #[macro_export]
 macro_rules! context {
-    ( $k:expr ) => ({
-        $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
-    });
-    ( None, $k:expr ) => ({
-        $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
-    });
-    ( $e:path, $k:expr ) => ({
-        $crate::error::Error($k, Some(Box::from($e)), Some(concat!(file!(), ":", line!(), ": ")))
-    });
+    ( $k:expr ) => {{
+        $crate::error::Error {
+            kind: $k,
+            occurrence: concat!(file!(), ":", line!(), ": "),
+        }
+    }};
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

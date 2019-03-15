@@ -238,23 +238,19 @@ impl<'a> IDL<'a> {
             )
         })?;
         if !interface.error.is_empty() {
-            let mut v : Vec<_> = interface.error.into_iter().collect();
+            let mut v: Vec<_> = interface.error.into_iter().collect();
             v.sort();
             let mut s = String::new();
-            let mut first : bool = true;
+            let mut first: bool = true;
             for i in v.iter() {
-                if ! first {
+                if !first {
                     s += "\n";
                 }
                 first = false;
                 s += &i.to_string();
             }
 
-            Err(strerr!(
-                Error,
-                "Interface definition error: '{}'\n",
-                s
-            ))
+            Err(strerr!(Error, "Interface definition error: '{}'\n", s))
         } else {
             Ok(interface)
         }

@@ -236,7 +236,6 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-
 pub use crate::client::VarlinkStream;
 use crate::client::{varlink_bridge, varlink_exec};
 
@@ -273,77 +272,6 @@ pub struct ErrorMethodNotImplemented {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct ErrorMethodNotFound {
     pub method: Option<String>,
-}
-
-impl From<Reply> for ErrorKind {
-    fn from(e: Reply) -> Self {
-        match e {
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.InterfaceNotFound" => match e {
-                Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                    Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()),
-                    Err(_) => ErrorKind::InterfaceNotFound(String::new()),
-                },
-                _ => ErrorKind::InterfaceNotFound(String::new()),
-            },
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.InvalidParameter" => match e {
-                Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
-                    Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()),
-                    Err(_) => ErrorKind::InvalidParameter(String::new()),
-                },
-                _ => ErrorKind::InvalidParameter(String::new()),
-            },
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotFound" => match e {
-                Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
-                    Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()),
-                    Err(_) => ErrorKind::MethodNotFound(String::new()),
-                },
-                _ => ErrorKind::MethodNotFound(String::new()),
-            },
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotImplemented" => match e {
-                Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                    Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()),
-                    Err(_) => ErrorKind::MethodNotImplemented(String::new()),
-                },
-                _ => ErrorKind::MethodNotImplemented(String::new()),
-            },
-            _ => ErrorKind::VarlinkErrorReply(e),
-        }
-    }
-}
-
-impl ErrorKind {
-    pub fn is_error(r: &Reply) -> bool {
-        match r.error {
-            Some(ref t) => match t.as_ref() {
-                "org.varlink.service.InvalidParameter" => true,
-                "org.varlink.service.InterfaceNotFound" => true,
-                "org.varlink.service.MethodNotFound" => true,
-                "org.varlink.service.MethodNotImplemented" => true,
-                _ => false,
-            },
-            _ => false,
-        }
-    }
 }
 
 /// This trait has to be implemented by any varlink interface implementor.
@@ -1029,9 +957,7 @@ where
             w.write_all(b.as_bytes())
                 .map_err(map_context!())
                 .map_err(Error::from)?;
-            w.flush()
-                .map_err(map_context!())
-                .map_err(Error::from)?;
+            w.flush().map_err(map_context!()).map_err(Error::from)?;
             if oneway {
                 conn.writer = Some(w);
             } else {
@@ -1238,10 +1164,9 @@ error InvalidParameter (parameter: string)
         let req = call.request.unwrap();
 
         match req {
-            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => call
-                .reply_parameters(
-                    serde_json::to_value(&self.info).map_err(map_context!())?,
-                ),
+            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => {
+                call.reply_parameters(serde_json::to_value(&self.info).map_err(map_context!())?)
+            }
 
             Request {
                 method: ref m,
@@ -1446,10 +1371,10 @@ impl ConnectionHandler for VarlinkService {
             buf.pop();
 
             let req: Request = serde_json::from_slice(&buf).map_err(|e| {
-                context!(
-                    e,
-                    ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string())
-                )
+                context!(ErrorKind::SerdeJsonDe(
+                    String::from_utf8_lossy(&buf).to_string(),
+                    e
+                ))
             })?;
 
             let n: usize = match req.method.rfind('.') {
